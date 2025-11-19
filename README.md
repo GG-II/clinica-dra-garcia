@@ -1,42 +1,87 @@
 # 🏥 Sistema Clínico Dra. Estephanny García
 
-Sistema integral de gestión clínica desarrollado con Next.js + FastAPI + PostgreSQL.
+Sistema integral de gestión clínica - Deployment local en Lenovo IdeaPad
 
 ## 📁 Estructura del Proyecto
 ```
-clinica/
-├── backend/          # FastAPI + Python
-├── frontend/         # Next.js + TypeScript
-└── docs/            # Documentación
+clinica-dra-garcia/
+├── clinica/
+│   ├── backend/          # FastAPI + Python 3.13
+│   ├── frontend/         # Next.js 25 + TypeScript
+│   └── docs/            # Documentación
+└── clinica-archivos/    # Archivos multimedia (no versionados)
+    ├── pacientes/
+    ├── inventario/
+    ├── fel/
+    └── backups/
 ```
 
-## 🚀 Estado del Desarrollo
+## 🚀 Estado del Desarrollo - Sprint 1
 
-- [x] Sprint 1: Infraestructura Base (En progreso)
-- [ ] Sprint 2: Gestión de Pacientes
-- [ ] Sprint 3: Historia Clínica Parte 1
-- [ ] Sprint 4: Historia Clínica Parte 2 + Agenda
+### FASE 1: MVP - Core Médico
+- [x] Estructura inicial
+- [ ] PostgreSQL configurado
+- [ ] Backend Base (FastAPI)
+- [ ] Frontend Base (Next.js)
+- [ ] Sistema de autenticación
+- [ ] CRUD Usuarios
 
 ## 🛠️ Stack Tecnológico
 
 **Backend:**
-- Python 3.11
+- Python 3.13.9
 - FastAPI
-- PostgreSQL 15
+- PostgreSQL 16
 - SQLAlchemy + Alembic
 
 **Frontend:**
+- Node.js 25.2.1
 - Next.js 14
 - TypeScript
-- Tailwind CSS
-- shadcn/ui
+- Tailwind CSS + shadcn/ui
 
-## 💻 Instalación
+**Deployment:**
+- Local: Lenovo IdeaPad Slim 3 15AMN8
+- IP: 192.168.1.10:3000
+- Sistema: Windows 11
 
-Ver documentación en `/docs/instalacion.md`
+## 💾 Base de Datos
+
+**Nombre:** clinica_db  
+**Usuario:** clinica_user  
+**Puerto:** 5432
 
 ## 📝 Metodología
 
-- SCRUM con sprints de 2 semanas
-- Desarrollo local en laptop
-- Deployment: Lenovo IdeaPad (192.168.1.10:3000)
+SCRUM - Sprints de 2 semanas
+- Sprint actual: 1/12
+- Fase actual: 1/5
+```
+
+---
+
+## 🎯 PASO 5: Commit en GitHub Desktop
+
+1. Abre **GitHub Desktop**
+2. Verás los cambios en `.gitignore` y `README.md`
+3. En el campo de commit escribe:
+```
+   feat: configuración inicial del proyecto
+   
+   - Estructura de carpetas ajustada
+   - Gitignore configurado
+   - README con información del stack
+```
+4. Click en **"Commit to feature/sprint-1-setup"**
+5. Click en **"Push origin"**
+
+---
+
+## ✅ Checklist antes de continuar:
+```
+[ ] PostgreSQL agregado al PATH
+[ ] Comando psql --version funciona
+[ ] Base de datos clinica_db creada
+[ ] Usuario clinica_user creado
+[ ] Conexión a BD exitosa
+[ ] Commit subido a GitHub
