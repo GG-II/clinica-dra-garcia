@@ -7,7 +7,7 @@ __pycache__/
 env/
 venv/
 ENV/
-backend/venv/
+clinica/backend/venv/
 .env
 .env.local
 
@@ -39,8 +39,8 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 
-# Uploads (archivos locales no van a Git)
-D:/clinica-archivos/
+# Archivos de la clínica (no van a Git)
+clinica-archivos/
 
 # Backups
 *.dump
