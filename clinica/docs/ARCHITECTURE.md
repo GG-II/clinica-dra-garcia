@@ -1,872 +1,863 @@
-# 🏗️ Arquitectura del Sistema - Clínica Familiar MEDGAR
+# 🏗️ Arquitectura del Sistema - Sistema Clínico MEDGAR
 
-Documento de decisiones técnicas y arquitectura del sistema.
+## Información General
 
-## 📋 Índice
-
-1. [Visión General](#visión-general)
-2. [Decisiones Arquitectónicas](#decisiones-arquitectónicas)
-3. [Stack Tecnológico](#stack-tecnológico)
-4. [Arquitectura del Backend](#arquitectura-del-backend)
-5. [Arquitectura del Frontend](#arquitectura-del-frontend)
-6. [Base de Datos](#base-de-datos)
-7. [Seguridad](#seguridad)
-8. [Deployment Local](#deployment-local)
-9. [Escalabilidad](#escalabilidad)
+- **Versión**: 2.0.0
+- **Patrón Arquitectónico**: Arquitectura en Capas (Layered Architecture)
+- **Estilo API**: RESTful
+- **Paradigma**: Backend-Frontend Separation
 
 ---
 
-## 🎯 Visión General
-
-### Tipo de Arquitectura
-**Arquitectura de 3 capas con API REST**
+## 📐 Vista General de la Arquitectura
 ```
-┌─────────────────────────────────────────┐
-│         CAPA DE PRESENTACIÓN            │
-│     (Next.js 14 + TypeScript)           │
-│   - UI/UX                               │
-│   - Manejo de estado local              │
-│   - Validaciones de frontend            │
-└─────────────────┬───────────────────────┘
-                  │ HTTP/REST
-                  │ JSON
-┌─────────────────▼───────────────────────┐
-│         CAPA DE APLICACIÓN              │
-│       (FastAPI + Python)                │
-│   - Lógica de negocio                   │
-│   - Autenticación/Autorización          │
-│   - Validaciones                        │
-│   - Transformación de datos             │
-└─────────────────┬───────────────────────┘
-                  │ SQLAlchemy ORM
-                  │ SQL
-┌─────────────────▼───────────────────────┐
-│         CAPA DE DATOS                   │
-│         (PostgreSQL 18)                 │
-│   - Persistencia                        │
-│   - Integridad referencial              │
-│   - Transacciones                       │
-└─────────────────────────────────────────┘
-```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          CLIENTE (Frontend)                         │
+│                     Next.js 14 + TypeScript                         │
+│                                                                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐            │
+│  │   Páginas    │  │ Componentes  │  │   Services   │            │
+│  │   (Pages)    │  │  (UI/shadcn) │  │   (API)      │            │
+│  └──────────────┘  └──────────────┘  └──────────────┘            │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓ HTTP/REST ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                           API GATEWAY                               │
+│                        FastAPI (main.py)                            │
+│                                                                     │
+│  • CORS Middleware                                                 │
+│  • Routing                                                         │
+│  • Error Handling                                                  │
+│  • Documentation (Swagger/ReDoc)                                   │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                        CAPA DE ROUTERS                              │
+│                      (Controladores REST)                           │
+│                                                                     │
+│  ┌─────────────┬─────────────┬─────────────┬─────────────┐        │
+│  │  pacientes  │   citas     │  consultas  │  recetas    │        │
+│  │   .router   │  .router    │  .router    │  .router    │        │
+│  └─────────────┴─────────────┴─────────────┴─────────────┘        │
+│  ┌─────────────┬─────────────┬─────────────┬─────────────┐        │
+│  │hospitali-   │ laboratorios│   caja      │  farmacia   │        │
+│  │zacion.router│  .router    │  .router    │  .router    │        │
+│  └─────────────┴─────────────┴─────────────┴─────────────┘        │
+│                                                                     │
+│  16 routers en total                                               │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                    CAPA DE LÓGICA DE NEGOCIO                        │
+│                      (Business Logic)                               │
+│                                                                     │
+│  • Validaciones de negocio                                         │
+│  • Cálculos (IMC, saldos, stock)                                  │
+│  • Reglas de negocio                                               │
+│  • Alertas y notificaciones                                        │
+│  • Gestión de estados                                              │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                    CAPA DE ACCESO A DATOS                           │
+│                    SQLAlchemy ORM + Models                          │
+│                                                                     │
+│  • Modelos de datos (31 tablas)                                   │
+│  • Relaciones entre entidades                                      │
+│  • Consultas y operaciones CRUD                                    │
+│  • Transacciones                                                   │
+└─────────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│                      BASE DE DATOS                                  │
+│                      PostgreSQL 15                                  │
+│                                                                     │
+│  • 31 tablas relacionales                                          │
+│  • Índices optimizados                                             │
+│  • Constraints y FK                                                │
+│  • Backups automáticos                                             │
+└─────────────────────────────────────────────────────────────────────┘
 
-### Principios de Diseño
-
-1. **Separación de Responsabilidades**: Frontend, Backend y Base de Datos claramente separados
-2. **API First**: El backend expone API REST documentada
-3. **Stateless Backend**: El servidor no mantiene estado de sesión
-4. **Client-Side State**: El frontend maneja su propio estado
-5. **Security by Design**: Autenticación y autorización desde el inicio
-
----
-
-## 🤔 Decisiones Arquitectónicas
-
-### ADR-001: ¿Por qué sistema desde cero vs. software existente?
-
-**Contexto**: 
-Existen sistemas médicos como OpenMRS, FreeMedForms, OpenEMR.
-
-**Decisión**: Construir desde cero
-
-**Razones**:
-1. ✅ **Control total**: Funcionalidades exactas requeridas
-2. ✅ **Adaptación a Guatemala**: FEL, IGSS, regulaciones locales
-3. ✅ **Curva de aprendizaje**: Más rápido aprender nuestro código que uno existente
-4. ✅ **Mantenibilidad**: Conocemos cada línea de código
-5. ✅ **Sin deuda técnica heredada**: Código limpio desde día 1
-
-**Consecuencias**:
-- ➕ Flexibilidad total
-- ➕ Performance optimizado para nuestro caso de uso
-- ➖ Mayor tiempo de desarrollo inicial
-- ➖ Responsabilidad total del mantenimiento
-
----
-
-### ADR-002: ¿Por qué FastAPI vs. Django/Flask?
-
-**Opciones Evaluadas**:
-- Django + DRF
-- Flask + extensiones
-- FastAPI
-
-**Decisión**: FastAPI
-
-**Razones**:
-1. ✅ **Performance**: Uno de los frameworks Python más rápidos
-2. ✅ **Type hints nativos**: Validación automática con Pydantic
-3. ✅ **Documentación automática**: Swagger UI out-of-the-box
-4. ✅ **Async nativo**: Preparado para operaciones asíncronas
-5. ✅ **Menos boilerplate**: Código más limpio y conciso
-6. ✅ **Moderno**: Usa características modernas de Python
-
-**Comparativa**:
-```python
-# Django (más verboso)
-class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
-    
-# FastAPI (más conciso)
-@router.get("/usuarios/")
-async def get_usuarios(db: Session = Depends(get_db)):
-    return db.query(Usuario).all()
+┌─────────────────────────────────────────────────────────────────────┐
+│                    SISTEMA DE ARCHIVOS                              │
+│                    D:\clinica-archivos\                             │
+│                                                                     │
+│  • Fotos de pacientes                                              │
+│  • Archivos multimedia                                             │
+│  • Documentos PDF                                                  │
+│  • Backups                                                         │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### ADR-003: ¿Por qué Next.js vs. React SPA vs. Vue?
-
-**Opciones Evaluadas**:
-- React SPA (Create React App / Vite)
-- Next.js
-- Vue.js / Nuxt.js
-
-**Decisión**: Next.js 14 (App Router)
-
-**Razones**:
-1. ✅ **SSR + CSR**: Flexibilidad de renderizado
-2. ✅ **File-based routing**: Organización intuitiva
-3. ✅ **Image optimization**: Optimización automática de imágenes
-4. ✅ **TypeScript first-class**: Soporte nativo excelente
-5. ✅ **Performance**: Carga rápida y SEO mejorado
-6. ✅ **Middleware**: Fácil implementar protección de rutas
-7. ✅ **API Routes**: Backend endpoints si se necesitan (no usados actualmente)
-
-**Por qué NO React SPA**:
-- ❌ Más configuración manual
-- ❌ No SSR out-of-the-box
-- ❌ Routing manual (React Router)
-
-**Por qué NO Vue**:
-- ❌ Menor ecosistema de librerías médicas
-- ❌ Menos desarrolladores disponibles en Guatemala
-
----
-
-### ADR-004: ¿Por qué PostgreSQL vs. MySQL vs. MongoDB?
-
-**Opciones Evaluadas**:
-- MySQL/MariaDB
-- PostgreSQL
-- MongoDB
-
-**Decisión**: PostgreSQL 18
-
-**Razones**:
-1. ✅ **ACID completo**: Crítico para datos médicos
-2. ✅ **JSON nativo**: Flexibilidad cuando se necesita
-3. ✅ **Tipos de datos ricos**: Arrays, JSONB, UUID, etc.
-4. ✅ **Constraints complejos**: Integridad referencial robusta
-5. ✅ **Full-text search**: Búsqueda de texto integrada
-6. ✅ **Open source real**: Sin sorpresas de licenciamiento
-7. ✅ **Performance**: Excelente para lecturas y escrituras
-
-**Por qué NO MySQL**:
-- ❌ Menos tipos de datos nativos
-- ❌ JSON menos maduro
-- ❌ Historial de licenciamiento complicado (Oracle)
-
-**Por qué NO MongoDB**:
-- ❌ NoSQL no es ideal para datos relacionales médicos
-- ❌ Menos maduro para transacciones complejas
-- ❌ Mayor riesgo de inconsistencia de datos
-
----
-
-### ADR-005: ¿Por qué deployment local vs. cloud?
-
-**Contexto**: 
-Clínica pequeña, 2 médicos, 120 pacientes/mes.
-
-**Decisión**: Deployment local en Lenovo IdeaPad
-
-**Razones**:
-1. ✅ **Costo**: $0 mensual vs. $50-200/mes cloud
-2. ✅ **Control de datos**: Datos sensibles permanecen en la clínica
-3. ✅ **Sin dependencia de internet**: Funciona incluso si cae el internet
-4. ✅ **Latencia**: Red local ultra rápida (< 5ms)
-5. ✅ **Regulaciones**: Más fácil cumplir normativas de datos médicos
-6. ✅ **Hardware existente**: Laptop ya adquirida
-
-**Consideraciones Cloud evaluadas**:
-- AWS/Azure/GCP: ❌ Costo alto para el volumen
-- Heroku: ❌ $25/mes + DB, innecesario para uso local
-- DigitalOcean: ❌ $12/mes, pero sin necesidad de acceso remoto
-
-**Futuro**: Si segunda sucursal requiere acceso remoto, considerar:
-- VPN entre sucursales
-- Replicación de base de datos
-- O migración a cloud
-
----
-
-## 💻 Stack Tecnológico
-
-### Backend Stack
-```yaml
-Runtime: Python 3.13.9
-Framework: FastAPI 0.115.6
-  ├─ Ventajas: Velocidad, type hints, documentación auto
-  └─ Casos de uso: APIs REST modernas
-
-ORM: SQLAlchemy 2.0.36
-  ├─ Ventajas: Maduro, potente, flexible
-  └─ Casos de uso: Mapeo objeto-relacional
-
-Migraciones: Alembic 1.14.0
-  ├─ Ventajas: Versionado de BD, reversible
-  └─ Casos de uso: Cambios de esquema controlados
-
-Base de Datos: PostgreSQL 18.1
-  ├─ Ventajas: ACID, tipos ricos, performance
-  └─ Casos de uso: Datos relacionales críticos
-
-Autenticación: JWT (python-jose 3.3.0)
-  ├─ Ventajas: Stateless, seguro, estándar
-  └─ Casos de uso: Autenticación API REST
-
-Passwords: bcrypt 4.2.1
-  ├─ Ventajas: Resistente a ataques, lento (bueno)
-  └─ Casos de uso: Hash de contraseñas
-
-Servidor: Uvicorn 0.34.0
-  ├─ Ventajas: ASGI, rápido, estable
-  └─ Casos de uso: Servidor de aplicaciones Python
-```
-
-### Frontend Stack
-```yaml
-Framework: Next.js 14
-  ├─ Ventajas: SSR, routing, optimizaciones
-  └─ Casos de uso: Aplicaciones web modernas
-
-Lenguaje: TypeScript 5
-  ├─ Ventajas: Type safety, autocompletado
-  └─ Casos de uso: JavaScript con tipos
-
-Estilos: Tailwind CSS 3
-  ├─ Ventajas: Utility-first, rápido, consistente
-  └─ Casos de uso: Estilizado moderno
-
-HTTP Client: Axios 1.x
-  ├─ Ventajas: Interceptors, transformaciones
-  └─ Casos de uso: Llamadas API
-
-State Management: React Hooks + Cookies
-  ├─ Ventajas: Simple, nativo, sin librería extra
-  └─ Casos de uso: Estado local y sesión
-
-Cookies: js-cookie 3.x
-  ├─ Ventajas: Simple, cross-browser
-  └─ Casos de uso: Almacenar token JWT
-```
-
----
-
-## 🏗️ Arquitectura del Backend
+## 🔧 Arquitectura Detallada del Backend
 
 ### Estructura de Carpetas
 ```
-backend/
+clinica/backend/
+│
+├── main.py                          # Entry point, API Gateway
+│
+├── database.py                      # Configuración de BD
+│
+├── create_simple_tables.py          # Modelos SQLAlchemy
+│
 ├── app/
-│   ├── api/
-│   │   └── v1/                    # Versionado de API
-│   │       ├── endpoints/         # Endpoints por módulo
-│   │       │   ├── auth.py       # Autenticación
-│   │       │   ├── usuarios.py   # CRUD usuarios
-│   │       │   └── pacientes.py  # CRUD pacientes (Sprint 2)
-│   │       └── __init__.py       # Router principal v1
-│   │
-│   ├── core/                      # Configuración central
-│   │   ├── config.py             # Settings con Pydantic
-│   │   └── security.py           # JWT, bcrypt
-│   │
-│   ├── db/                        # Base de datos
-│   │   ├── database.py           # Conexión SQLAlchemy
-│   │   └── init_db.py            # Seed data inicial
-│   │
-│   ├── models/                    # Modelos SQLAlchemy
-│   │   ├── usuario.py            # User, Role, Permission
-│   │   └── paciente.py           # Patient (Sprint 2)
-│   │
-│   ├── schemas/                   # Schemas Pydantic
-│   │   ├── auth.py               # Login, Token
-│   │   └── usuario.py            # User DTO
-│   │
-│   └── services/                  # Lógica de negocio
-│       └── (futuro)
+│   └── routers/                     # Routers (Controladores)
+│       ├── pacientes.py             # 9 endpoints
+│       ├── citas.py                 # 7 endpoints
+│       ├── lista_espera.py          # 4 endpoints
+│       ├── medicamentos.py          # 5 endpoints
+│       ├── consultas.py             # 5 endpoints
+│       ├── antecedentes.py          # 5 endpoints
+│       ├── vacunas.py               # 4 endpoints
+│       ├── interconsultas.py        # 4 endpoints
+│       ├── recetas.py               # 4 endpoints
+│       ├── hospitalizacion.py       # 11 endpoints
+│       ├── notas_medicas.py         # 3 endpoints
+│       ├── ordenes_medicas.py       # 3 endpoints
+│       ├── laboratorios.py          # 6 endpoints
+│       ├── caja.py                  # 13 endpoints
+│       ├── farmacia.py              # 15 endpoints
+│       └── reportes.py              # 5 endpoints
 │
-├── main.py                        # Punto de entrada FastAPI
-├── init_database.py              # Script inicialización
-├── requirements.txt              # Dependencias Python
-└── .env                          # Variables de entorno
-```
-
-### Flujo de Request
-```
-1. Cliente hace request → http://localhost:8000/api/v1/usuarios/
-2. CORS Middleware → Valida origen
-3. FastAPI Router → Encuentra endpoint
-4. Dependencias → get_db(), auth
-5. Endpoint Handler → Lógica de negocio
-6. SQLAlchemy → Query a PostgreSQL
-7. Pydantic Schema → Serialización
-8. Response → JSON al cliente
-```
-
-### Patrones de Diseño Usados
-
-1. **Repository Pattern**: 
-   - SQLAlchemy models abstraen acceso a datos
-   - Futuro: Crear clases Repository explícitas
-
-2. **Dependency Injection**:
-```python
-   def get_usuarios(db: Session = Depends(get_db)):
-       # db inyectado automáticamente
-```
-
-3. **DTO Pattern**:
-   - Pydantic schemas como Data Transfer Objects
-   - Separación entre modelos de BD y API
-
-4. **Middleware Pattern**:
-   - CORS middleware
-   - (Futuro) Rate limiting, logging
-
----
-
-## 🎨 Arquitectura del Frontend
-
-### Estructura de Carpetas
-```
-frontend/
-├── app/                           # Next.js App Router
-│   ├── (auth)/                   # Grupo de rutas auth
-│   │   └── login/
-│   │       └── page.tsx          # Página login
-│   │
-│   ├── dashboard/                # Rutas protegidas
-│   │   ├── layout.tsx            # Layout con header/footer
-│   │   └── page.tsx              # Dashboard principal
-│   │
-│   ├── layout.tsx                # Root layout
-│   ├── page.tsx                  # Redirect a /login
-│   └── globals.css               # Estilos globales
+├── init_data_completo.py            # Script de inicialización
 │
-├── components/                    # Componentes reutilizables
-│   ├── layout/                   # Layout components
-│   └── ui/                       # UI components
+├── requirements.txt                 # Dependencias Python
 │
-├── lib/                           # Utilidades
-│   ├── api.ts                    # Axios configurado
-│   └── auth.ts                   # Servicio autenticación
-│
-├── public/                        # Assets estáticos
-│   ├── logo-medgar.png           # Logo completo
-│   └── icon-medgar.png           # Ícono solo
-│
-├── types/                         # TypeScript types
-│   └── index.ts                  # Interfaces globales
-│
-├── middleware.ts                  # Next.js middleware (auth)
-├── next.config.js                # Config Next.js
-├── tailwind.config.ts            # Config Tailwind
-└── .env.local                    # Variables de entorno
-```
-
-### Flujo de Navegación
-```
-1. Usuario visita "/" 
-   → middleware.ts → Verifica token
-   → Si no hay token: Redirect /login
-   → Si hay token: Permite acceso
-
-2. Usuario en /login
-   → Ingresa credenciales
-   → authService.login()
-   → Guarda token en cookie
-   → Redirect /dashboard
-
-3. Usuario en /dashboard
-   → layout.tsx renderiza header/footer
-   → page.tsx renderiza contenido
-   → Todos los links usan Next.js <Link>
-
-4. Usuario click "Cerrar Sesión"
-   → authService.logout()
-   → Elimina cookie
-   → Redirect /login
-```
-
-### Manejo de Estado
-
-**Estado Global**: No se usa Redux/Zustand (innecesario para Sprint 1)
-
-**Estado Local**: React Hooks
-```typescript
-const [loading, setLoading] = useState(false);
-const [user, setUser] = useState<Usuario | null>(null);
-```
-
-**Estado de Sesión**: Cookies + Local checks
-```typescript
-// Guardar
-Cookies.set('token', token, { expires: 7 });
-Cookies.set('user', JSON.stringify(user), { expires: 7 });
-
-// Leer
-const token = Cookies.get('token');
-const user = JSON.parse(Cookies.get('user'));
-```
-
-**Futuro**: Si la app crece, considerar:
-- Zustand (ligero, simple)
-- React Query (cache de API calls)
-- Redux Toolkit (si se vuelve muy complejo)
-
----
-
-## 🗄️ Base de Datos
-
-### Esquema ER - Sprint 1
-```
-┌─────────────────┐
-│     roles       │
-├─────────────────┤
-│ id (PK)        │
-│ nombre         │◄─────────┐
-│ descripcion    │          │
-│ created_at     │          │
-└─────────────────┘          │
-                             │
-                             │ FK
-                             │
-┌─────────────────┐          │
-│   usuarios      │          │
-├─────────────────┤          │
-│ id (PK)        │          │
-│ username (UK)  │          │
-│ email (UK)     │          │
-│ password_hash  │          │
-│ nombres        │          │
-│ apellidos      │          │
-│ rol_id (FK)    │──────────┘
-│ activo         │
-│ created_at     │
-│ updated_at     │
-└─────────────────┘
-        │
-        │
-        │ FK
-        │
-        ▼
-┌─────────────────┐
-│ logs_auditoria  │
-├─────────────────┤
-│ id (PK)        │
-│ usuario_id (FK)│
-│ accion         │
-│ modulo         │
-│ descripcion    │
-│ ip_address     │
-│ created_at     │
-└─────────────────┘
-
-┌─────────────────┐
-│   permisos      │
-├─────────────────┤
-│ id (PK)        │
-│ nombre         │
-│ descripcion    │
-│ modulo         │
-└─────────────────┘
-        ▲
-        │
-        │
-┌───────┴─────────┐
-│  rol_permisos   │
-├─────────────────┤
-│ id (PK)        │
-│ rol_id (FK)    │
-│ permiso_id (FK)│
-└─────────────────┘
-```
-
-### Convenciones de Nombres
-```sql
--- Tablas: plural, snake_case
-usuarios, pacientes, citas_medicas
-
--- Columnas: snake_case
-created_at, fecha_nacimiento, password_hash
-
--- Primary Keys: id (serial)
-id SERIAL PRIMARY KEY
-
--- Foreign Keys: [tabla_singular]_id
-usuario_id, paciente_id, medico_id
-
--- Índices: idx_[tabla]_[columna]
-idx_usuarios_email, idx_pacientes_dpi
-
--- Unique constraints: uk_[tabla]_[columna]
-uk_usuarios_username
-```
-
-### Tipos de Datos Usados
-```sql
--- IDs
-SERIAL / INTEGER
-
--- Texto corto
-VARCHAR(50), VARCHAR(100), VARCHAR(255)
-
--- Texto largo
-TEXT
-
--- Fechas y horas
-DATE, TIMESTAMP, TIMESTAMP WITH TIME ZONE
-
--- Booleanos
-BOOLEAN (true/false, not 0/1)
-
--- Decimales
-DECIMAL(10,2) para dinero
-DECIMAL(5,2) para medidas (peso, talla)
-
--- JSON (futuro)
-JSONB para datos flexibles
+└── venv/                            # Entorno virtual
 ```
 
 ---
 
-## 🔒 Seguridad
+## 🎯 Patrón de Diseño: Arquitectura en Capas
 
-### Capas de Seguridad
-```
-┌─────────────────────────────────────────────────┐
-│ 1. Red Local (192.168.1.x)                     │
-│    - No expuesto a internet                     │
-│    - Firewall Windows activo                    │
-└─────────────────────────────────────────────────┘
-                     ▼
-┌─────────────────────────────────────────────────┐
-│ 2. CORS (Backend)                               │
-│    - Solo permite localhost:3000 y .10:3000     │
-│    - Bloquea otros orígenes                     │
-└─────────────────────────────────────────────────┘
-                     ▼
-┌─────────────────────────────────────────────────┐
-│ 3. Middleware Next.js (Frontend)                │
-│    - Verifica token antes de cada página        │
-│    - Redirect a login si no autenticado         │
-└─────────────────────────────────────────────────┘
-                     ▼
-┌─────────────────────────────────────────────────┐
-│ 4. JWT Validation (Backend)                     │
-│    - Verifica firma del token                   │
-│    - Verifica expiración (30 min)               │
-│    - Extrae usuario del token                   │
-└─────────────────────────────────────────────────┘
-                     ▼
-┌─────────────────────────────────────────────────┐
-│ 5. Role-Based Access (Futuro)                   │
-│    - Verifica permisos por rol                  │
-│    - Bloquea acciones no autorizadas            │
-└─────────────────────────────────────────────────┘
-                     ▼
-┌─────────────────────────────────────────────────┐
-│ 6. Audit Logs (Implementado parcial)            │
-│    - Registra quién hizo qué                    │
-│    - Timestamp + IP + acción                    │
-└─────────────────────────────────────────────────┘
-```
+### 1. Capa de Presentación (API Layer)
 
-### Hashing de Passwords
+**Responsabilidad**: Exponer endpoints REST y manejar HTTP
+
+**Componentes**:
+- `main.py`: FastAPI app, CORS, routing
+- Routers individuales por módulo
+
+**Características**:
 ```python
-# Usando bcrypt (cost factor = 12)
-from passlib.context import CryptContext
+# Ejemplo de estructura de router
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+router = APIRouter(prefix="/api/pacientes", tags=["Pacientes"])
 
-# Hash (al crear usuario)
-hashed = pwd_context.hash("admin123")
-# Resultado: $2b$12$...
-
-# Verify (al login)
-is_valid = pwd_context.verify("admin123", hashed)
-# Resultado: True/False
+@router.post("/")
+def crear_paciente(paciente: PacienteCreate, db: Session = Depends(get_db)):
+    # Validación de entrada
+    # Lógica de negocio
+    # Acceso a datos
+    # Respuesta
+    pass
 ```
 
-**Por qué bcrypt**:
-- ✅ Diseñado para ser lento (protege contra brute force)
-- ✅ Salt automático (protege contra rainbow tables)
-- ✅ Cost factor ajustable (futuro-proof)
-- ✅ Ampliamente probado y confiable
+**Responsabilidades**:
+- Validación de entrada (Pydantic)
+- Serialización/Deserialización (JSON ↔ Modelos)
+- Manejo de errores HTTP
+- Documentación automática (Swagger)
 
-### JWT Tokens
+---
+
+### 2. Capa de Lógica de Negocio (Business Logic Layer)
+
+**Responsabilidad**: Implementar reglas de negocio y lógica compleja
+
+**Ejemplos de Lógica de Negocio**:
+
+#### Cálculo de IMC
 ```python
-# Estructura del token
-{
-  "header": {
-    "alg": "HS256",
-    "typ": "JWT"
-  },
-  "payload": {
-    "sub": "admin",           # username
-    "user_id": 1,             # user ID
-    "exp": 1700000000         # expiration timestamp
-  },
-  "signature": "..."          # HMAC SHA256
-}
+# En consultas.py
+if consulta.peso and consulta.talla and consulta.talla > 0:
+    imc = consulta.peso / ((consulta.talla / 100) ** 2)
+    response.imc = round(imc, 2)
 ```
+
+#### Validación de Stock en Farmacia
+```python
+# En farmacia.py
+if producto.stock_actual < cantidad:
+    raise HTTPException(
+        status_code=400,
+        detail=f"Stock insuficiente. Disponible: {producto.stock_actual}"
+    )
+```
+
+#### Cambio Automático de Estado de Cama
+```python
+# En hospitalizacion.py
+if cama.estado != EstadoCamaEnum.disponible:
+    raise HTTPException(status_code=400, detail="Cama no disponible")
+
+# Al ingresar paciente
+cama.estado = EstadoCamaEnum.ocupada
+
+# Al dar egreso
+cama.estado = EstadoCamaEnum.limpieza
+```
+
+#### Cálculo de Saldos en Cuentas por Cobrar
+```python
+# En caja.py
+cuenta.monto_pagado += abono.monto_pagado
+cuenta.saldo = cuenta.monto_total - cuenta.monto_pagado
+
+if cuenta.saldo <= 0:
+    cuenta.pagado = True
+    cuenta.saldo = 0
+```
+
+#### Alertas de Inventario
+```python
+# En farmacia.py
+response.alerta_stock = producto.stock_actual <= producto.stock_minimo
+
+if producto.fecha_vencimiento:
+    dias_vencimiento = (producto.fecha_vencimiento - date.today()).days
+    response.alerta_vencimiento = dias_vencimiento <= 30
+```
+
+---
+
+### 3. Capa de Acceso a Datos (Data Access Layer)
+
+**Responsabilidad**: Interactuar con la base de datos
+
+**Componentes**:
+- SQLAlchemy Models (`create_simple_tables.py`)
+- Session management (`database.py`)
+
+**Patrón Repository Implícito**:
+```python
+# Consultas comunes
+db.query(Paciente).filter(Paciente.id == paciente_id).first()
+db.query(Cita).filter(Cita.medico_id == medico_id).all()
+db.add(nuevo_paciente)
+db.commit()
+db.refresh(nuevo_paciente)
+```
+
+**Relaciones**:
+```python
+# Ejemplo: Consulta con paciente y médico
+class Consulta(Base):
+    __tablename__ = "consultas"
+    
+    paciente_id = Column(Integer, ForeignKey("pacientes.id"))
+    medico_id = Column(Integer, ForeignKey("usuarios.id"))
+    
+    # Relaciones (opcional, por implementar)
+    # paciente = relationship("Paciente", back_populates="consultas")
+    # medico = relationship("Usuario", back_populates="consultas")
+```
+
+---
+
+### 4. Capa de Persistencia (Database Layer)
+
+**Responsabilidad**: Almacenamiento físico de datos
 
 **Configuración**:
-- Algorithm: HS256 (HMAC SHA-256)
-- Secret: Variable de entorno `SECRET_KEY`
-- Expiration: 30 minutos
-- Storage: Cookie HttpOnly (futuro) o LocalStorage (actual)
+```python
+# database.py
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:password@localhost/clinica_db"
 
-**Por qué JWT**:
-- ✅ Stateless (no requiere DB para validar)
-- ✅ Self-contained (incluye info del usuario)
-- ✅ Estándar de industria
-- ✅ Funciona bien con SPA
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+```
 
-### Pendientes de Seguridad (Futuro)
-
-- [ ] HTTPS con certificado SSL (nginx reverse proxy)
-- [ ] Rate limiting por IP
-- [ ] CSRF tokens
-- [ ] HttpOnly cookies para JWT
-- [ ] Refresh tokens (evitar re-login frecuente)
-- [ ] 2FA (autenticación de dos factores)
-- [ ] Encriptación de datos sensibles en BD
-- [ ] Backups encriptados
-- [ ] Logs de seguridad detallados
+**Características**:
+- Pool de conexiones
+- Transacciones ACID
+- Constraints y Foreign Keys
+- Índices optimizados
 
 ---
 
-## 🚀 Deployment Local
+## 🔄 Flujo de Datos (Request-Response)
 
-### Topología de Red
+### Ejemplo: Crear una Consulta
 ```
-                     Internet
-                        │
-                        │ (solo para npm/pip)
-                        │
-                   [Router WiFi]
-                   192.168.1.1
-                        │
-        ┌───────────────┼───────────────┐
-        │               │               │
-   [Laptop Dev]    [Lenovo Server]  [Tablets]
-   192.168.1.x     192.168.1.10     192.168.1.y
-                        │
-                        ├─ PostgreSQL :5432
-                        ├─ FastAPI :8000
-                        └─ Next.js :3000
+1. CLIENTE (Frontend)
+   POST http://localhost:8000/api/consultas
+   Body: { paciente_id: 1, medico_id: 2, ... }
+   
+                    ↓
+
+2. API GATEWAY (main.py)
+   • Recibe request
+   • Aplica CORS
+   • Rutea a consultas.router
+   
+                    ↓
+
+3. ROUTER (consultas.py)
+   • Valida entrada con Pydantic (ConsultaCreate)
+   • Obtiene sesión de BD (Depends(get_db))
+   
+                    ↓
+
+4. BUSINESS LOGIC (en router)
+   • Verifica que paciente existe
+   • Verifica que médico existe
+   • Calcula IMC si hay peso y talla
+   
+                    ↓
+
+5. DATA ACCESS (SQLAlchemy)
+   • db.add(nueva_consulta)
+   • db.commit()
+   • db.refresh(nueva_consulta)
+   
+                    ↓
+
+6. DATABASE (PostgreSQL)
+   • INSERT INTO consultas ...
+   • COMMIT
+   • RETURN inserted row
+   
+                    ↓
+
+7. RESPONSE (JSON)
+   • Serializa con Pydantic (ConsultaResponse)
+   • Status: 201 Created
+   • Body: { id: 1, imc: 24.05, ... }
+   
+                    ↓
+
+8. CLIENTE (Frontend)
+   • Recibe respuesta
+   • Actualiza UI
 ```
 
-### Configuración de Red
+---
 
-**IP Estática en Windows**:
-1. Panel de Control → Red
-2. Propiedades de WiFi
-3. IPv4 → Manual
-4. IP: `192.168.1.10`
-5. Máscara: `255.255.255.0`
-6. Gateway: `192.168.1.1`
-7. DNS: `8.8.8.8`
+## 🔐 Seguridad (Por Implementar en Sprint 11)
 
-**Firewall**:
-```powershell
-# Permitir puertos
-New-NetFirewallRule -DisplayName "FastAPI" -Direction Inbound -LocalPort 8000 -Protocol TCP -Action Allow
-New-NetFirewallRule -DisplayName "Next.js" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow
+### Autenticación JWT
+
+**Flujo Propuesto**:
+```
+1. Login
+   POST /api/auth/login
+   { email, password }
+   
+2. Validación
+   • Verificar credenciales
+   • Generar JWT token
+   
+3. Response
+   { token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", user: {...} }
+   
+4. Requests Posteriores
+   Headers: { Authorization: "Bearer <token>" }
+   
+5. Middleware
+   • Verificar token
+   • Extraer user_id y rol
+   • Permitir/Denegar acceso
 ```
 
-### Scripts de Inicio
+### Autorización por Roles
 
-**start-backend.bat**:
-```batch
-@echo off
-cd C:\Users\tefi1\Documents\GitHub\clinica-dra-garcia\clinica\backend
-call .\venv\Scripts\Activate.bat
-start "Backend FastAPI" cmd /k "uvicorn main:app --reload --host 0.0.0.0 --port 8000"
+**Matriz de Permisos** (Propuesta):
+
+| Endpoint | Médico | Enfermera | Recepcionista | Admin |
+|----------|--------|-----------|---------------|-------|
+| GET /pacientes | ✅ | ✅ | ✅ | ✅ |
+| POST /pacientes | ✅ | ❌ | ✅ | ✅ |
+| POST /consultas | ✅ | ❌ | ❌ | ✅ |
+| POST /recetas | ✅ | ❌ | ❌ | ✅ |
+| POST /hospitalizacion/ingresos | ✅ | ❌ | ❌ | ✅ |
+| POST /ordenes-medicas | ✅ | ❌ | ❌ | ✅ |
+| POST /notas-medicas | ✅ | ✅ | ❌ | ✅ |
+| POST /caja/apertura | ❌ | ❌ | ✅ | ✅ |
+| GET /reportes/dashboard | ❌ | ❌ | ❌ | ✅ |
+| POST /farmacia/compras | ❌ | ❌ | ❌ | ✅ |
+
+---
+
+## 📊 Patrones de Diseño Utilizados
+
+### 1. Dependency Injection
+
+**Uso**: Inyección de sesión de base de datos
+```python
+from fastapi import Depends
+from database import get_db
+
+@router.post("/")
+def crear_paciente(
+    paciente: PacienteCreate,
+    db: Session = Depends(get_db)  # ← Dependency Injection
+):
+    pass
 ```
 
-**start-frontend.bat**:
-```batch
-@echo off
-cd C:\Users\tefi1\Documents\GitHub\clinica-dra-garcia\clinica\frontend
-start "Frontend Next.js" cmd /k "npm run dev"
+**Ventajas**:
+- Testabilidad
+- Separación de responsabilidades
+- Flexibilidad
+
+---
+
+### 2. Repository Pattern (Implícito)
+
+**Uso**: Acceso a datos centralizado en routers
+```python
+# Operaciones CRUD encapsuladas
+def obtener_paciente(paciente_id: int, db: Session):
+    return db.query(Paciente).filter(Paciente.id == paciente_id).first()
+
+def crear_paciente(paciente: PacienteCreate, db: Session):
+    db_paciente = Paciente(**paciente.model_dump())
+    db.add(db_paciente)
+    db.commit()
+    return db_paciente
 ```
 
-**start-all.bat**:
-```batch
-@echo off
-echo Iniciando Sistema Clínico MEDGAR...
-call start-backend.bat
-timeout /t 5
-call start-frontend.bat
-echo.
-echo Sistema iniciado. Acceder a:
-echo   Local: http://localhost:3000
-echo   Red:   http://192.168.1.10:3000
+---
+
+### 3. DTO Pattern (Data Transfer Object)
+
+**Uso**: Schemas de Pydantic
+```python
+# Input DTO
+class ConsultaCreate(BaseModel):
+    paciente_id: int
+    medico_id: int
+    motivo_consulta: str
+    # ...
+
+# Output DTO
+class ConsultaResponse(BaseModel):
+    id: int
+    paciente_id: int
+    imc: Optional[float]  # Campo calculado
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
 ```
+
+**Ventajas**:
+- Validación automática
+- Documentación clara
+- Separación modelo interno vs. API
+
+---
+
+### 4. Factory Pattern (Implícito)
+
+**Uso**: Creación de objetos complejos
+```python
+# En recetas.py - Crear receta con múltiples medicamentos
+def crear_receta(receta: RecetaCreate, db: Session):
+    # Factory: crear receta + detalles
+    db_receta = Receta(...)
+    db.add(db_receta)
+    db.flush()  # Obtener ID
+    
+    for med in receta.medicamentos:
+        detalle = RecetaDetalle(receta_id=db_receta.id, ...)
+        db.add(detalle)
+    
+    db.commit()
+    return db_receta
+```
+
+---
+
+### 5. Strategy Pattern (En Validaciones)
+
+**Uso**: Diferentes estrategias de validación según contexto
+```python
+# Validación según tipo de orden médica
+if orden.tipo == TipoOrdenEnum.medicamento:
+    # Validar que medicamento_id existe
+    # Validar dosis, frecuencia, vía
+    pass
+elif orden.tipo == TipoOrdenEnum.dieta:
+    # Solo validar descripción
+    pass
+```
+
+---
+
+## 🔄 Manejo de Transacciones
+
+### Transacciones Automáticas
+```python
+@router.post("/ventas")
+def crear_venta(venta: VentaCreate, db: Session):
+    try:
+        # Todo dentro de una transacción
+        db_venta = VentaFarmacia(...)
+        db.add(db_venta)
+        db.flush()
+        
+        for prod in venta.productos:
+            # Crear detalle
+            detalle = DetalleVenta(...)
+            db.add(detalle)
+            
+            # Actualizar stock (crítico)
+            producto.stock_actual -= prod.cantidad
+        
+        db.commit()  # ← Commit si todo OK
+        
+    except Exception as e:
+        db.rollback()  # ← Rollback si hay error
+        raise HTTPException(status_code=500, detail=str(e))
+```
+
+**Garantías ACID**:
+- **Atomicity**: Todo o nada
+- **Consistency**: Stock siempre correcto
+- **Isolation**: Sin conflictos concurrentes
+- **Durability**: Cambios persistentes
 
 ---
 
 ## 📈 Escalabilidad
 
-### Escenarios Futuros
+### Escalabilidad Vertical (Actual)
 
-**Escenario 1: Segunda Sucursal (Año 1)**
+**Hardware**:
+- CPU: AMD Ryzen 5 7520U (4 cores)
+- RAM: 16 GB
+- Disco: 500 GB SSD
 
-Opciones:
-1. **Dos instancias independientes** (recomendado inicialmente)
-   - Pros: Simple, sin latencia entre sucursales
-   - Contras: Datos separados, no sincronizados
+**Capacidad Estimada**:
+- Usuarios concurrentes: 10-20
+- Pacientes en BD: 10,000+
+- Transacciones/día: 500+
 
-2. **VPN + Base de datos compartida**
-   - Pros: Datos centralizados
-   - Contras: Latencia, punto único de falla
+### Escalabilidad Horizontal (Futuro)
 
-3. **Migración a cloud**
-   - Pros: Acceso desde cualquier lugar
-   - Contras: Costo mensual, dependencia de internet
+**Preparación para Múltiples Sucursales**:
+```
+Sucursal 1 (Huehuetenango)
+    ↓
+    API Local → BD Local
+    ↓
+    Sincronización ← → Servidor Central
+    ↑
+Sucursal 2 (Nueva)
+    ↑
+    API Local → BD Local
+```
 
-**Escenario 2: Crecimiento a 5 Médicos (Año 2)**
-
-Sistema actual soporta:
-- ✅ 5 médicos simultáneos
-- ✅ 500 pacientes/mes
-- ✅ 10,000+ registros en BD
-
-Posibles cuellos de botella:
-- Espacio en disco (500 GB suficiente por ~3 años)
-- RAM si muchos usuarios simultáneos (16 GB OK hasta 10 usuarios)
-
-**Escenario 3: Telemedicina Remota (Año 2)**
-
-Requerirá:
-- Servidor accesible desde internet
-- Certificado SSL
-- Mayor ancho de banda
-- Consideración de migrar a cloud
-
-### Mejoras de Performance (Futuro)
-
-**Backend**:
-- [ ] Caché con Redis
-- [ ] Database connection pooling (ya configurado)
-- [ ] Compresión de responses (gzip)
-- [ ] Pagination en todos los endpoints
-- [ ] Índices adicionales en BD
-
-**Frontend**:
-- [ ] Lazy loading de componentes
-- [ ] Optimización de imágenes (ya con Next.js)
-- [ ] Service Worker para offline
-- [ ] Memoización de componentes pesados
-
-**Base de Datos**:
-- [ ] Particionamiento de tablas grandes
-- [ ] Índices en columnas más consultadas
-- [ ] Vacuum automático configurado
-- [ ] Estadísticas de performance
+**Estrategias**:
+- Base de datos por sucursal
+- Replicación de catálogos (medicamentos, tipos de estudio)
+- Sincronización de pacientes compartidos
+- Reportes consolidados en servidor central
 
 ---
 
-## 📊 Monitoreo (Futuro)
+## 🔧 Configuración y Variables de Entorno
 
-### Métricas a Monitorear
+### Archivo: `.env` (Por Crear)
+```env
+# Database
+DATABASE_URL=postgresql://postgres:password@localhost:5432/clinica_db
 
-**Sistema**:
-- CPU usage
-- RAM usage
-- Disk space
-- Network latency
+# Server
+HOST=0.0.0.0
+PORT=8000
 
-**Aplicación**:
-- Response time de API
-- Número de requests/segundo
-- Errores 4xx/5xx
-- Usuarios concurrentes
+# Security (Futuro)
+SECRET_KEY=your-secret-key-here
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
 
-**Base de Datos**:
-- Query time
-- Connection pool usage
-- Deadlocks
-- Slow queries
+# File Storage
+UPLOAD_DIR=D:/clinica-archivos
+MAX_FILE_SIZE_MB=50
 
-**Herramientas Sugeridas**:
-- Prometheus + Grafana
-- PostgreSQL pg_stat_statements
-- FastAPI middleware de logging
+# Backup
+BACKUP_DIR=D:/clinica-backups
+BACKUP_RETENTION_DAYS=30
+
+# Email (Futuro)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=clinica@example.com
+SMTP_PASSWORD=password
+
+# Twilio (Para recordatorios - Futuro)
+TWILIO_ACCOUNT_SID=your_sid
+TWILIO_AUTH_TOKEN=your_token
+TWILIO_PHONE_NUMBER=+14155238886
+
+# FEL (Futuro)
+FEL_API_KEY=your_fel_api_key
+FEL_API_URL=https://api-fel.com
+```
 
 ---
 
-## 🔄 Migraciones (Futuro)
+## 🧪 Testing (Por Implementar)
 
-### Plan de Migración a Cloud (Si se requiere)
-
-**Opción AWS**:
+### Estructura Propuesta
 ```
-RDS PostgreSQL    → $25/mes (db.t3.micro)
-EC2 Backend       → $15/mes (t3.micro)
-S3 Archivos       → $5/mes (50 GB)
-CloudFront CDN    → $5/mes
-Total             → ~$50/mes
-```
-
-**Opción DigitalOcean**:
-```
-Droplet           → $12/mes (2 GB RAM)
-Managed DB        → $15/mes
-Spaces            → $5/mes
-Total             → ~$32/mes
+clinica/backend/tests/
+│
+├── test_pacientes.py
+├── test_citas.py
+├── test_consultas.py
+├── test_hospitalizacion.py
+├── test_farmacia.py
+└── test_reportes.py
 ```
 
-**Pasos de Migración**:
-1. Backup completo de BD
-2. Dump de PostgreSQL
-3. Setup servidor cloud
-4. Restore BD en cloud
-5. Deploy backend
-6. Deploy frontend
-7. Actualizar DNS
-8. Testing exhaustivo
-9. Cutover
+### Ejemplo de Test
+```python
+# test_pacientes.py
+from fastapi.testclient import TestClient
+from main import app
+
+client = TestClient(app)
+
+def test_crear_paciente():
+    response = client.post(
+        "/api/pacientes",
+        json={
+            "nombres": "Test",
+            "apellidos": "Paciente",
+            "fecha_nacimiento": "1990-01-01",
+            "dpi": "1234567890101",
+            "genero": "Masculino"
+        }
+    )
+    assert response.status_code == 201
+    assert response.json()["nombres"] == "Test"
+```
 
 ---
 
-## 📚 Referencias
+## 📊 Monitoreo y Logging (Por Implementar)
 
-### Documentación Oficial
-- FastAPI: https://fastapi.tiangolo.com/
-- Next.js: https://nextjs.org/docs
-- PostgreSQL: https://www.postgresql.org/docs/
-- SQLAlchemy: https://docs.sqlalchemy.org/
-- Tailwind: https://tailwindcss.com/docs
+### Logging Propuesto
+```python
+import logging
 
-### Libros Recomendados
-- "Architecture Patterns with Python" - Harry Percival
-- "Designing Data-Intensive Applications" - Martin Kleppmann
-- "FastAPI for APIs" - Bill Lubanovic (cuando salga)
+# Configuración
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('clinica.log'),
+        logging.StreamHandler()
+    ]
+)
 
-### Tutoriales Útiles
-- FastAPI + PostgreSQL: https://testdriven.io/blog/fastapi-crud/
-- Next.js Authentication: https://next-auth.js.org/
-- SQLAlchemy Relationships: https://docs.sqlalchemy.org/en/14/orm/tutorial.html
+logger = logging.getLogger(__name__)
+
+# Uso en routers
+@router.post("/")
+def crear_paciente(...):
+    logger.info(f"Creando paciente: {paciente.nombres} {paciente.apellidos}")
+    # ...
+    logger.info(f"Paciente creado con ID: {db_paciente.id}")
+```
+
+### Métricas Importantes
+
+- Requests por endpoint
+- Tiempo de respuesta promedio
+- Errores 4xx y 5xx
+- Uso de CPU y RAM
+- Transacciones de BD por segundo
+- Espacio en disco utilizado
 
 ---
 
-**Última actualización**: Noviembre 2025  
-**Versión**: 1.0 - Sprint 1  
-**Autor**: Equipo de Desarrollo  
-**Revisión**: Pendiente
+## 🚀 Performance
+
+### Optimizaciones Implementadas
+
+#### 1. Índices en Base de Datos
+```python
+# En create_simple_tables.py
+class Paciente(Base):
+    # ...
+    __table_args__ = (
+        Index('idx_pacientes_dpi', 'dpi'),
+        Index('idx_pacientes_nombres', 'nombres'),
+    )
+```
+
+#### 2. Paginación
+```python
+@router.get("/")
+def listar_pacientes(skip: int = 0, limit: int = 100, db: Session = ...):
+    return db.query(Paciente).offset(skip).limit(limit).all()
+```
+
+#### 3. Eager Loading (Por Implementar)
+```python
+# Cargar relaciones en una sola query
+db.query(Consulta).options(
+    joinedload(Consulta.paciente),
+    joinedload(Consulta.medico)
+).all()
+```
+
+### Optimizaciones Futuras
+
+- Caché de catálogos (medicamentos, tipos de estudio)
+- Compresión de respuestas (gzip)
+- CDN para archivos estáticos
+- Background tasks para operaciones pesadas
+- Database connection pooling optimizado
+
+---
+
+## 🔄 Versionamiento de API (Futuro)
+
+### Estrategia Propuesta
+```python
+# v1/
+@app.include_router(pacientes.router, prefix="/api/v1")
+
+# v2/ (cuando sea necesario)
+@app.include_router(pacientes_v2.router, prefix="/api/v2")
+```
+
+**Política de Deprecación**:
+- Anunciar con 6 meses de anticipación
+- Mantener 2 versiones simultáneas
+- Documentar cambios breaking
+
+---
+
+## 📚 Documentación de Código
+
+### Estándares
+
+**Docstrings**:
+```python
+def crear_paciente(paciente: PacienteCreate, db: Session):
+    """
+    Crear un nuevo paciente en el sistema.
+    
+    Args:
+        paciente: Datos del paciente a crear
+        db: Sesión de base de datos
+    
+    Returns:
+        PacienteResponse: Paciente creado con ID asignado
+    
+    Raises:
+        HTTPException 400: Si el DPI ya existe
+    """
+    pass
+```
+
+**Type Hints**:
+```python
+from typing import List, Optional
+
+def obtener_pacientes(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+) -> List[PacienteResponse]:
+    pass
+```
+
+---
+
+## 🎯 Principios SOLID Aplicados
+
+### Single Responsibility Principle (SRP)
+- Cada router maneja un solo módulo
+- Cada endpoint tiene una responsabilidad clara
+
+### Open/Closed Principle (OCP)
+- Fácil agregar nuevos routers sin modificar existentes
+- Extensible mediante Pydantic models
+
+### Liskov Substitution Principle (LSP)
+- Schemas base reutilizables (Create, Update, Response)
+
+### Interface Segregation Principle (ISP)
+- Schemas específicos por operación
+- No forzar campos innecesarios
+
+### Dependency Inversion Principle (DIP)
+- Dependencia de abstracción (Session) no implementación
+- FastAPI Depends para inyección
+
+---
+
+## 📝 Convenciones de Código
+
+### Naming Conventions
+
+**Archivos**: `snake_case.py`
+- `pacientes.py`, `lista_espera.py`
+
+**Clases**: `PascalCase`
+- `PacienteCreate`, `ConsultaResponse`
+
+**Funciones**: `snake_case`
+- `crear_paciente()`, `obtener_consultas()`
+
+**Variables**: `snake_case`
+- `paciente_id`, `fecha_nacimiento`
+
+**Constantes**: `UPPER_SNAKE_CASE`
+- `MAX_FILE_SIZE`, `DEFAULT_PAGE_SIZE`
+
+### Estructura de Endpoint
+```python
+@router.post("/", response_model=ResponseSchema, status_code=201)
+def crear_entidad(
+    entidad: CreateSchema,
+    db: Session = Depends(get_db)
+):
+    """Docstring detallado"""
+    
+    # 1. Validaciones
+    # 2. Lógica de negocio
+    # 3. Acceso a datos
+    # 4. Response
+    
+    return response
+```
+
+---
+
+## 🔮 Roadmap Técnico
+
+### Sprint 11: Autenticación y Seguridad
+- [ ] JWT Authentication
+- [ ] Autorización por roles
+- [ ] Encriptación de datos sensibles
+- [ ] Logs de auditoría
+
+### Sprint 12: Optimización
+- [ ] Caching de catálogos
+- [ ] Query optimization
+- [ ] Background tasks
+- [ ] Performance monitoring
+
+### Futuro: Multi-Tenancy
+- [ ] Arquitectura multi-sucursal
+- [ ] Sincronización de datos
+- [ ] Reportes consolidados
+
+---
+
+**Última actualización**: Enero 2025  
+**Versión**: 2.0.0
