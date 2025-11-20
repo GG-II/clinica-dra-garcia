@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation'; // ⬅️ AGREGAR ESTA LÍNEA
 import { authService } from '@/lib/auth';
 import { Usuario } from '@/types';
 
 export default function DashboardPage() {
+  const router = useRouter(); // ⬅️ AGREGAR ESTA LÍNEA
   const [user, setUser] = useState<Usuario | null>(null);
 
   useEffect(() => {
@@ -45,7 +47,8 @@ export default function DashboardPage() {
       description: 'Gestión de pacientes y expedientes',
       icon: '👥',
       color: 'bg-blue-100 text-blue-600',
-      available: false,
+      available: true, // ⬅️ CAMBIAR A true
+      href: '/dashboard/pacientes', // ⬅️ AGREGAR
     },
     {
       name: 'Historia Clínica',
@@ -53,6 +56,7 @@ export default function DashboardPage() {
       icon: '📋',
       color: 'bg-green-100 text-green-600',
       available: false,
+      href: '/dashboard/historia-clinica', // ⬅️ AGREGAR
     },
     {
       name: 'Agenda',
@@ -60,6 +64,7 @@ export default function DashboardPage() {
       icon: '📅',
       color: 'bg-purple-100 text-purple-600',
       available: false,
+      href: '/dashboard/agenda', // ⬅️ AGREGAR
     },
     {
       name: 'Recetas',
@@ -67,6 +72,7 @@ export default function DashboardPage() {
       icon: '💊',
       color: 'bg-pink-100 text-pink-600',
       available: false,
+      href: '/dashboard/recetas', // ⬅️ AGREGAR
     },
     {
       name: 'Hospitalización',
@@ -74,6 +80,7 @@ export default function DashboardPage() {
       icon: '🏥',
       color: 'bg-red-100 text-red-600',
       available: false,
+      href: '/dashboard/hospitalizacion', // ⬅️ AGREGAR
     },
     {
       name: 'Laboratorios',
@@ -81,6 +88,7 @@ export default function DashboardPage() {
       icon: '🔬',
       color: 'bg-yellow-100 text-yellow-600',
       available: false,
+      href: '/dashboard/laboratorios', // ⬅️ AGREGAR
     },
     {
       name: 'Farmacia',
@@ -88,6 +96,7 @@ export default function DashboardPage() {
       icon: '💉',
       color: 'bg-indigo-100 text-indigo-600',
       available: false,
+      href: '/dashboard/farmacia', // ⬅️ AGREGAR
     },
     {
       name: 'Caja',
@@ -95,6 +104,7 @@ export default function DashboardPage() {
       icon: '💰',
       color: 'bg-teal-100 text-teal-600',
       available: false,
+      href: '/dashboard/caja', // ⬅️ AGREGAR
     },
   ];
 
@@ -106,7 +116,7 @@ export default function DashboardPage() {
           ¡Bienvenido, {user?.nombres}! 👋
         </h2>
         <p className="text-purple-100">
-          Sistema de Gestión Clínica - Sprint 1: MVP Core Médico
+          Sistema de Gestión Clínica - Sprint 2: Gestión de Pacientes
         </p>
       </div>
 
@@ -137,7 +147,7 @@ export default function DashboardPage() {
       {/* Sprint Progress */}
       <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          📊 Progreso del Sprint 1
+          📊 Progreso del Sprint 2
         </h3>
         <div className="space-y-3">
           <div>
@@ -152,10 +162,10 @@ export default function DashboardPage() {
           <div>
             <div className="flex justify-between text-sm mb-1">
               <span className="text-gray-600">Gestión de Pacientes</span>
-              <span className="text-gray-400 font-medium">Próximo</span>
+              <span className="text-purple-600 font-medium">En Progreso</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-gray-300 h-2 rounded-full w-0"></div>
+              <div className="bg-purple-600 h-2 rounded-full w-3/4"></div>
             </div>
           </div>
         </div>
@@ -170,9 +180,10 @@ export default function DashboardPage() {
           {modules.map((module) => (
             <div
               key={module.name}
+              onClick={() => module.available && module.href && router.push(module.href)}
               className={`bg-white rounded-xl shadow-sm p-6 border border-gray-200 ${
-                !module.available ? 'opacity-50' : 'hover:shadow-md'
-              } transition-all cursor-pointer`}
+                module.available ? 'hover:shadow-md hover:border-purple-300 cursor-pointer' : 'opacity-50'
+              } transition-all`}
             >
               <div
                 className={`${module.color} h-12 w-12 rounded-lg flex items-center justify-center text-2xl mb-4`}
@@ -183,7 +194,11 @@ export default function DashboardPage() {
                 {module.name}
               </h4>
               <p className="text-sm text-gray-600 mb-2">{module.description}</p>
-              {!module.available && (
+              {module.available ? (
+                <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+                  ✓ Disponible
+                </span>
+              ) : (
                 <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">
                   Próximamente
                 </span>
