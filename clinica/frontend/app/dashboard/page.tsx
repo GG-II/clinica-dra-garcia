@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { authService } from '@/lib/auth';
 import { Usuario } from '@/types';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
   const [user, setUser] = useState<Usuario | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const userData = authService.getUser();
@@ -45,7 +47,8 @@ export default function DashboardPage() {
       description: 'Gestión de pacientes y expedientes',
       icon: '👥',
       color: 'bg-blue-100 text-blue-600',
-      available: false,
+      available: true,
+      href: '/dashboard/pacientes',
     },
     {
       name: 'Historia Clínica',
@@ -97,6 +100,13 @@ export default function DashboardPage() {
       available: false,
     },
   ];
+
+  const handleModuleClick = (module: typeof modules[0]) => {
+  if (module.available && module.href) {
+    router.push(module.href);
+  }
+};
+
 
   return (
     <div className="space-y-8">
@@ -169,11 +179,14 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {modules.map((module) => (
             <div
-              key={module.name}
-              className={`bg-white rounded-xl shadow-sm p-6 border border-gray-200 ${
-                !module.available ? 'opacity-50' : 'hover:shadow-md'
-              } transition-all cursor-pointer`}
-            >
+  key={module.name}
+  onClick={() => handleModuleClick(module)}
+  className={`bg-white rounded-xl shadow-sm p-6 border border-gray-200 ${
+    !module.available 
+      ? 'opacity-50 cursor-not-allowed' 
+      : 'hover:shadow-md hover:border-purple-300 cursor-pointer'
+  } transition-all`}
+>
               <div
                 className={`${module.color} h-12 w-12 rounded-lg flex items-center justify-center text-2xl mb-4`}
               >

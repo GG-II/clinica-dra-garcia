@@ -1,7 +1,6 @@
-// app/dashboard/pacientes/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { pacientesService } from '@/lib/pacientes';
 import { Paciente, EstadisticasPacientes } from '@/types/paciente';
@@ -16,14 +15,11 @@ export default function PacientesPage() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
 
-  // Cargar pacientes iniciales y estadísticas
-  useEffect(() => {
-    cargarDatos();
-  }, []);
-
-  const cargarDatos = async () => {
+  // useCallback para evitar re-crear la función en cada render
+  const cargarDatos = useCallback(async () => {
     try {
       setLoading(true);
+      setError('');
       const [pacientesData, estadisticasData] = await Promise.all([
         pacientesService.listar({ limit: 100 }),
         pacientesService.estadisticas(),
@@ -36,17 +32,23 @@ export default function PacientesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // ← Sin dependencias, función estable
 
-  const handleBuscar = async (query: string) => {
+  // Cargar datos solo una vez al montar el componente
+  useEffect(() => {
+    cargarDatos();
+  }, [cargarDatos]); // ← Ahora cargarDatos es estable gracias a useCallback
+
+  // useCallback para handleBuscar también
+  const handleBuscar = useCallback(async (query: string) => {
     if (query.length === 0) {
-      // Si no hay búsqueda, recargar todos
       cargarDatos();
       return;
     }
 
     try {
       setSearching(true);
+      setError('');
       const resultados = await pacientesService.listar({ buscar: query, limit: 50 });
       setPacientes(resultados);
     } catch (error) {
@@ -55,15 +57,15 @@ export default function PacientesPage() {
     } finally {
       setSearching(false);
     }
-  };
+  }, [cargarDatos]); // ← Depende de cargarDatos (que es estable)
 
-  const handleVerPaciente = (pacienteId: number) => {
+  const handleVerPaciente = useCallback((pacienteId: number) => {
     router.push(`/dashboard/pacientes/${pacienteId}`);
-  };
+  }, [router]);
 
-  const handleNuevoPaciente = () => {
+  const handleNuevoPaciente = useCallback(() => {
     router.push('/dashboard/pacientes/nuevo');
-  };
+  }, [router]);
 
   if (loading) {
     return (

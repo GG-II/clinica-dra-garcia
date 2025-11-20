@@ -1,12 +1,12 @@
 // components/pacientes/BuscarPaciente.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface BuscarPacienteProps {
   onBuscar: (query: string) => void | Promise<void>;
   placeholder?: string;
-  delay?: number; // Milisegundos de delay para evitar muchas búsquedas
+  delay?: number;
 }
 
 export default function BuscarPaciente({
@@ -16,27 +16,34 @@ export default function BuscarPaciente({
 }: BuscarPacienteProps) {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  
+  // useRef para mantener la última función onBuscar sin causar re-renders
+  const onBuscarRef = useRef(onBuscar);
+  
+  // Actualizar la ref cuando onBuscar cambie
+  useEffect(() => {
+    onBuscarRef.current = onBuscar;
+  }, [onBuscar]);
 
   // Debounce: esperar a que el usuario termine de escribir
   useEffect(() => {
     if (query.length === 0) {
-      onBuscar('');
+      onBuscarRef.current('');
       setIsSearching(false);
       return;
     }
 
     setIsSearching(true);
     const timeoutId = setTimeout(() => {
-      onBuscar(query);
+      onBuscarRef.current(query);
       setIsSearching(false);
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [query, onBuscar, delay]);
+  }, [query, delay]); // ← Solo query y delay como dependencias
 
   const handleClear = () => {
     setQuery('');
-    onBuscar('');
   };
 
   return (
@@ -96,7 +103,7 @@ export default function BuscarPaciente({
         </div>
       )}
 
-      {/* Contador de caracteres (opcional) */}
+      {/* Contador de caracteres */}
       {query.length > 0 && !isSearching && (
         <div className="absolute -bottom-6 left-0 text-xs text-gray-500">
           {query.length} caracteres
